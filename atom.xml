@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[My Octopress Blog]]></title>
+  <link href="http://git2samus.github.com/octopress-demo/atom.xml" rel="self"/>
+  <link href="http://git2samus.github.com/octopress-demo/"/>
+  <updated>2012-05-07T18:32:47-03:00</updated>
+  <id>http://git2samus.github.com/octopress-demo/</id>
+  <author>
+    <name><![CDATA[Your Name]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[TweetView]]></title>
+    <link href="http://git2samus.github.com/octopress-demo/blog/2012/04/26/tweetview/"/>
+    <updated>2012-04-26T00:00:00-03:00</updated>
+    <id>http://git2samus.github.com/octopress-demo/blog/2012/04/26/tweetview</id>
+    <content type="html"><![CDATA[<p>Twitter analysis Graphical analysis of tweets and retweets around the world. Alpha version.</p>
+
+<div class="author">
+  <img src="http://www.globant.com/images/globant2010/be-a-glober/avatar-facebook.jpg" style="width: 96px; height: 96;">
+  <span style="position: absolute; padding: 32px 15px;">
+    <i>Original post by <a href="http://twitter.com/">Globant</a> - check out <a href="http://bigdata.globant.com">BigData</a></i>
+  </span>
+</div>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Playing with merge-sort in Clojure]]></title>
+    <link href="http://git2samus.github.com/octopress-demo/blog/2012/04/09/playing-with-merge-sort-in-clojure/"/>
+    <updated>2012-04-09T00:00:00-03:00</updated>
+    <id>http://git2samus.github.com/octopress-demo/blog/2012/04/09/playing-with-merge-sort-in-clojure</id>
+    <content type="html"><![CDATA[<!-- vim: set ft=html: http://5digits.org/ -->
+
+
+<p>
+I&#8217;ve enlisted for the <a href="https://www.coursera.org/course/algo">Design and Analysis of Algorithms</a> online course offered by the Stanford University, unfortunately I&#8217;m not being able to follow the schedule so I&#8217;ve decided to just take it easy, do it at my own pace and play along with anything I find interesting.
+</p>
+
+
+
+
+<p class="aside">
+I won&#8217;t spoil or discuss the course exercises although my code could probably be used to give you some cheat (but I&#8217;m already behind schedule so if you came looking for this the joke is on you).
+</p>
+
+
+
+
+<p>
+Here&#8217;s my approach(es) at implementing the mergesort algorithm described on the first videos in Clojure, along with the findings I&#8217;ve made related to the language; be warned that I&#8217;m a Clojure novice so most of this surely is entry-level.
+</p>
+
+
+
+
+<p>
+So, this was my first &#8220;successful&#8221; implementation:
+</p>
+
+
+
+
+<script src="https://gist.github.com/2339850.js"> </script>
+
+
+<p>
+There&#8217;s two functions: the <span class="code">merge-step</span> receives two sorted sequences and returns another sorted sequence with the combination of the two; <span class="code">divide-step</span> receives a collection (or a finite sequence) and calls the <span class="code">merge-step</span> with the result of calling itself with smaller collections.
+</p>
+
+
+
+
+<p>
+The idea behind this is pretty much the literal interpretation of the lecture&#8217;s description of mergesort, you have a list of unordered integers and then you start splitting those in two until you get zero-or-one lists, then in reverse order you sort them in pairs so on each step down you get smaller lists and on each step up you get larger sorted ones.
+</p>
+
+
+
+
+<p>
+I was worried that this approach of mine could be evaluated in <a href="https://en.wikipedia.org/wiki/Breadth-first_search%22">BFO</a> by the Clojure interpreter but after a few prints I found that it&#8217;s <a href="https://en.wikipedia.org/wiki/Depth-first_search">DFO</a> which is good, since it will deplete the left side of the operation before working on the right, which I think should keep less elements in memory at any given time (not that it matters really).
+</p>
+
+
+
+
+<p>
+Now I&#8217;ve quoted the expression &#8220;successful&#8221; because this works only for small inputs, after trying with lists of ~5k items I was greeted with a nice <span class="code">java.lang.StackOverflowError</span> yeah!
+</p>
+
+
+
+
+<p>
+Turns out <span class="code">cons</span> isn&#8217;t lazy as I imagined, which means the first time you call merge-step it&#8217;ll calculate everything up to the last element before returning, which causes the whole computation to be performed at once; fortunately we can prevent that with <span class="code">lazy-seq</span> which allows us to return from <span class="code">cons</span> immediately and calculate the rest of the sequence as it is consumed:
+</p>
+
+
+
+
+<script src="https://gist.github.com/2339848.js"> </script>
+
+
+<p>
+This now allows us to process larger datasets.
+</p>
+
+
+
+
+<p>
+At this point I thought about another implementation using a recursive function instead of a generator, so I came up with this:
+</p>
+
+
+
+
+<script src="https://gist.github.com/2341265.js"> </script>
+
+
+<p>
+This one accumulates the result calculated so far in one if its own arguments when recursing, it works well even for large inputs but there&#8217;s still something I don&#8217;t like about it and it&#8217;s the fact that, in order to get the length of the input, you need to have read it entirely before even starting to work.
+</p>
+
+
+
+
+<p>
+It would be great if this could run in a way that didn&#8217;t require that, if it were able to consume the input in time when processing it, that would fit better into the &#8220;lazy evaluation&#8221; mindset that we try to achieve on functional programming.
+</p>
+
+
+
+
+<p>
+So in order to do that I added a third function that would simply sort larger and larger chunks of input so it doesn&#8217;t need to know about all the dataset in advance, as long as it is finite it&#8217;ll work:
+</p>
+
+
+
+
+<script src="https://gist.github.com/2341447.js"> </script>
+
+
+<p>
+Now instead of calling <span class="code">divide-step</span> directly we call <span class="code">lazy-sort</span> which will sort the first two elements and then keep sorting and merging larger chunks on each step until the input is depleted (it works with both recursive and list-based implementations of <span class="code">merge-step</span>).
+</p>
+
+
+
+
+<p>
+This creates an uneven tree since the input is no longer being cut in half but instead consumed in chunks but it shouldn&#8217;t affect the overall performance of the algorithm because there&#8217;s roughly the same amount of &#8220;levels&#8221; involved.
+</p>
+
+
+
+
+<p>
+Next will be to implement a k-way mergesort.
+</p>
+
+
+<div class="author">
+  <img src="http://29.media.tumblr.com/avatar_f48315fdd1dc_64.png" style="width: 96px; height: 96;">
+  <span style="position: absolute; padding: 32px 15px;">
+    <i>Original post by <a href="http://twitter.com/">Michael Cetrulo</a> - check out <a href="http://blog2samus.tumblr.com/">blog2samus!</a></i>
+  </span>
+</div>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Two useful tools for sharing S3 files!]]></title>
+    <link href="http://git2samus.github.com/octopress-demo/blog/2012/03/29/two-useful-tools-for-sharing-s3-files/"/>
+    <updated>2012-03-29T00:00:00-03:00</updated>
+    <id>http://git2samus.github.com/octopress-demo/blog/2012/03/29/two-useful-tools-for-sharing-s3-files</id>
+    <content type="html"><![CDATA[<p>Today Amazon recommended me this two products, which made my day easier today for file sharing! You can create a short URL and you can also set its expiration date. CloudBerry http://www.cloudberrylab.com/ [Win] 3Hub http://3hubapp.com/ [3Hub]</p>
+
+<div class="author">
+  <img src="http://www.globant.com/images/globant2010/be-a-glober/avatar-facebook.jpg" style="width: 96px; height: 96;">
+  <span style="position: absolute; padding: 32px 15px;">
+    <i>Original post by <a href="http://twitter.com/">Globant</a> - check out <a href="http://bigdata.globant.com">BigData</a></i>
+  </span>
+</div>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Why Big Data is more than just Hadoop by Pentaho (Spanish webinar)]]></title>
+    <link href="http://git2samus.github.com/octopress-demo/blog/2012/03/19/why-big-data-is-more-than-just-hadoop-by-pentaho-spanish-webinar/"/>
+    <updated>2012-03-19T00:00:00-03:00</updated>
+    <id>http://git2samus.github.com/octopress-demo/blog/2012/03/19/why-big-data-is-more-than-just-hadoop-by-pentaho-spanish-webinar</id>
+    <content type="html"><![CDATA[<p>This seminar explores how to work with Big Data is more than just Hadoop. In order to make quick and easy analysis of large data, most of the companies that have adopted Hadoop are resorting to some kind of analytic database, such as Greenplum, Vertica or Teradata to provide a lower latencyaccess to data. We invite you to view this webinar with the purpose of: Learn how the requirements can work as well as traditional business intelligence so as to provide visualization and analysis capabilities across multiple dimensions over large data [&#8230;]</p>
+
+<div class="author">
+  <img src="http://www.globant.com/images/globant2010/be-a-glober/avatar-facebook.jpg" style="width: 96px; height: 96;">
+  <span style="position: absolute; padding: 32px 15px;">
+    <i>Original post by <a href="http://twitter.com/">Globant</a> - check out <a href="http://bigdata.globant.com">BigData</a></i>
+  </span>
+</div>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[The Role of Big Data]]></title>
+    <link href="http://git2samus.github.com/octopress-demo/blog/2012/03/19/the-role-of-big-data/"/>
+    <updated>2012-03-19T00:00:00-03:00</updated>
+    <id>http://git2samus.github.com/octopress-demo/blog/2012/03/19/the-role-of-big-data</id>
+    <content type="html"><![CDATA[<p>Cloud Expo Article An exclusive Q&#38;A with Dr. William L. Bain, founder and CEO of ScaleOut Software View the full article here</p>
+
+<div class="author">
+  <img src="http://www.globant.com/images/globant2010/be-a-glober/avatar-facebook.jpg" style="width: 96px; height: 96;">
+  <span style="position: absolute; padding: 32px 15px;">
+    <i>Original post by <a href="http://twitter.com/">Globant</a> - check out <a href="http://bigdata.globant.com">BigData</a></i>
+  </span>
+</div>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[VMWare Live Webminar: SQL? NoSQL? NewSQL?!? What’s a Java developer to do?]]></title>
+    <link href="http://git2samus.github.com/octopress-demo/blog/2012/03/09/vmware-live-webminar-sql-nosql-newsql-what-s-a-java-developer-to-do/"/>
+    <updated>2012-03-09T00:00:00-02:00</updated>
+    <id>http://git2samus.github.com/octopress-demo/blog/2012/03/09/vmware-live-webminar-sql-nosql-newsql-what-s-a-java-developer-to-do</id>
+    <content type="html"><![CDATA[<p>Hosted by Chris Richardson, Staff Engineer NoSQL databases such as MongoDB and Cassandra can simplify the persistence of complex data models and offer significantly better scalability and performance. But these databases have a very different and unfamiliar data model and APIs as well as a limited transaction model. Additionally the relational world is fighting back [&#8230;]</p>
+
+<div class="author">
+  <img src="http://www.globant.com/images/globant2010/be-a-glober/avatar-facebook.jpg" style="width: 96px; height: 96;">
+  <span style="position: absolute; padding: 32px 15px;">
+    <i>Original post by <a href="http://twitter.com/">Globant</a> - check out <a href="http://bigdata.globant.com">BigData</a></i>
+  </span>
+</div>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[BigData on the Media]]></title>
+    <link href="http://git2samus.github.com/octopress-demo/blog/2012/02/22/bigdata-on-the-media/"/>
+    <updated>2012-02-22T00:00:00-02:00</updated>
+    <id>http://git2samus.github.com/octopress-demo/blog/2012/02/22/bigdata-on-the-media</id>
+    <content type="html"><![CDATA[<p>BigData on the Media This section contains relevant third-party articles on BigData. The information contained in these articles may not reflect our opinion nor point of view. The Age of Big Data http://www.nytimes.com/2012/02/12/sunday-review/big-datas-impact-in-the-world.html?_r=2 Very interesting post, where the New York Times comments on the opportunities of BigData in several industries and presents some interesting success [&#8230;]</p>
+
+<div class="author">
+  <img src="http://www.globant.com/images/globant2010/be-a-glober/avatar-facebook.jpg" style="width: 96px; height: 96;">
+  <span style="position: absolute; padding: 32px 15px;">
+    <i>Original post by <a href="http://twitter.com/">Globant</a> - check out <a href="http://bigdata.globant.com">BigData</a></i>
+  </span>
+</div>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Globant Big Data white paper on Apache Hadoop]]></title>
+    <link href="http://git2samus.github.com/octopress-demo/blog/2012/02/16/globant-big-data-white-paper-on-apache-hadoop/"/>
+    <updated>2012-02-16T00:00:00-02:00</updated>
+    <id>http://git2samus.github.com/octopress-demo/blog/2012/02/16/globant-big-data-white-paper-on-apache-hadoop</id>
+    <content type="html"><![CDATA[<p>Globant &#8211; Big Data whitepaper</p>
+
+<div class="author">
+  <img src="http://www.globant.com/images/globant2010/be-a-glober/avatar-facebook.jpg" style="width: 96px; height: 96;">
+  <span style="position: absolute; padding: 32px 15px;">
+    <i>Original post by <a href="http://twitter.com/">Globant</a> - check out <a href="http://bigdata.globant.com">BigData</a></i>
+  </span>
+</div>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Hadoop Tutorial]]></title>
+    <link href="http://git2samus.github.com/octopress-demo/blog/2012/02/14/hadoop-tutorial/"/>
+    <updated>2012-02-14T00:00:00-02:00</updated>
+    <id>http://git2samus.github.com/octopress-demo/blog/2012/02/14/hadoop-tutorial</id>
+    <content type="html"><![CDATA[<p>Hi guys, I would like to share this tutorial about Hadoop, it&#8217;s really good and simple. Module 1: Tutorial Introduction http://developer.yahoo.com/hadoop/tutorial/module1.html Module 2: The Hadoop Distributed File System http://developer.yahoo.com/hadoop/tutorial/module2.html You can see the rest of the module with all the documentation. Lean</p>
+
+<div class="author">
+  <img src="http://www.globant.com/images/globant2010/be-a-glober/avatar-facebook.jpg" style="width: 96px; height: 96;">
+  <span style="position: absolute; padding: 32px 15px;">
+    <i>Original post by <a href="http://twitter.com/">Globant</a> - check out <a href="http://bigdata.globant.com">BigData</a></i>
+  </span>
+</div>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Debug your MapReduce program locally]]></title>
+    <link href="http://git2samus.github.com/octopress-demo/blog/2012/02/14/debug-your-mapreduce-program-locally/"/>
+    <updated>2012-02-14T00:00:00-02:00</updated>
+    <id>http://git2samus.github.com/octopress-demo/blog/2012/02/14/debug-your-mapreduce-program-locally</id>
+    <content type="html"><![CDATA[<p>This is a brief note about how you can quickly start to debugging the MapReduce program you are working on. The main idea is to launch the Hadoop&#8217;s job with the debugger enabled. We do this with some arguments added to the environment variable HADOOP_OPTS. We will not want to set these arguments permanent because [&#8230;]</p>
+
+<div class="author">
+  <img src="http://www.globant.com/images/globant2010/be-a-glober/avatar-facebook.jpg" style="width: 96px; height: 96;">
+  <span style="position: absolute; padding: 32px 15px;">
+    <i>Original post by <a href="http://twitter.com/">Globant</a> - check out <a href="http://bigdata.globant.com">BigData</a></i>
+  </span>
+</div>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Apache Hadoop integration to existing Architectures]]></title>
+    <link href="http://git2samus.github.com/octopress-demo/blog/2012/02/13/apache-hadoop-integration-to-existing-architectures/"/>
+    <updated>2012-02-13T00:00:00-02:00</updated>
+    <id>http://git2samus.github.com/octopress-demo/blog/2012/02/13/apache-hadoop-integration-to-existing-architectures</id>
+    <content type="html"><![CDATA[<p>This section suggests different ideas on the way we think is the best to integrate Hadoop to existing architectures. How to integrate existing data with Hadoop? be transparent in the data importation to DFS user periodic batch import asynchronic saving of data to DFS take data from xml, cvs, data bases Pentaho: desktop app ETL [&#8230;]</p>
+
+<div class="author">
+  <img src="http://www.globant.com/images/globant2010/be-a-glober/avatar-facebook.jpg" style="width: 96px; height: 96;">
+  <span style="position: absolute; padding: 32px 15px;">
+    <i>Original post by <a href="http://twitter.com/">Globant</a> - check out <a href="http://bigdata.globant.com">BigData</a></i>
+  </span>
+</div>
+
+]]></content>
+  </entry>
+  
+</feed>
